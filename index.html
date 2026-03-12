@@ -589,28 +589,41 @@
         document.getElementById('live-price').textContent = '$' + parseFloat(pair.priceUsd || 0).toFixed(10)
         const chartWrap = document.querySelector('.chart-iframe-wrap')
         chartWrap.innerHTML = '<iframe src="https://dexscreener.com/bsc/' + pair.pairAddress + '?embed=1&theme=dark&trades=1" allowfullscreen></iframe>'
-        renderTx()
+        await fetchRealTx(pair.pairAddress)
       }
     } catch(e) {}
   }
 
-  function renderTx() {
-    const list = document.getElementById('tx-list')
-    const types = ['buy','sell']
-    const amounts = ['0.1 BNB','0.5 BNB','1.2 BNB','0.05 BNB','2.0 BNB','0.3 BNB']
-    const item = document.createElement('div')
-    item.className = 'tx-item'
-    const type = types[Math.floor(Math.random()*2)]
-    const amount = amounts[Math.floor(Math.random()*amounts.length)]
-    const wallet = '0x' + Math.random().toString(16).substr(2,4) + '...' + Math.random().toString(16).substr(2,4)
-    item.innerHTML = '<span class="tx-type ' + type + '">' + type.toUpperCase() + '</span><span class="tx-amount ' + type + '">' + amount + '</span><span class="tx-wallet">' + wallet + '</span><span class="tx-time">Just now</span>'
-    if (list.querySelector('.tx-loading')) list.innerHTML = ''
-    list.insertBefore(item, list.firstChild)
-    if (list.children.length > 10) list.removeChild(list.lastChild)
+  async function fetchRealTx(pairAddress) {
+    try {
+      const res = await fetch('https://api.dexscreener.com/latest/dex/pairs/bsc/' + pairAddress)
+      const data = await res.json()
+      if (!data.pair || !data.pair.txns) return
+      const list = document.getElementById('tx-list')
+      const recentTxRes = await fetch('https://io.dexscreener.com/dex/log/amm/v3/bsc/' + pairAddress + '?rankBy=block&order=desc&offset=0&limit=10')
+      const recentTxData = await recentTxRes.json()
+      if (!recentTxData.logs || recentTxData.logs.length === 0) return
+      if (list.querySelector('.tx-loading')) list.innerHTML = ''
+      recentTxData.logs.forEach(tx => {
+        const existing = document.getElementById('tx-' + tx.txHash)
+        if (existing) return
+        const item = document.createElement('div')
+        item.className = 'tx-item'
+        item.id = 'tx-' + tx.txHash
+        const type = tx.type === 'buy' ? 'buy' : 'sell'
+        const bnbAmount = tx.volumeNative ? parseFloat(tx.volumeNative).toFixed(4) + ' BNB' : '—'
+        const wallet = tx.maker ? tx.maker.slice(0, 6) + '...' + tx.maker.slice(-4) : '0x????'
+        const time = new Date(tx.timestamp * 1000).toLocaleTimeString()
+        item.innerHTML = '<span class="tx-type ' + type + '">' + type.toUpperCase() + '</span><span class="tx-amount ' + type + '">' + bnbAmount + '</span><span class="tx-wallet">' + wallet + '</span><span class="tx-time">' + time + '</span>'
+        list.insertBefore(item, list.firstChild)
+        if (list.children.length > 10) list.removeChild(list.lastChild)
+      })
+    } catch(e) {}
   }
 
   fetchTransactions()
   setInterval(fetchTransactions, 30000)
+
 </script>
 
 </body>
