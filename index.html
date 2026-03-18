@@ -574,15 +574,6 @@
     return '$' + Math.round(n).toLocaleString();
   }
 
-  function fmtChange(c) {
-    if (c == null) return { text: '--', up: true };
-    const n = parseFloat(c);
-    return { text: (n >= 0 ? '+' : '') + n.toFixed(2) + '%', up: n >= 0 };
-  }
-
-    } catch(e) {}
-  }
-
   async function fetchAndRender() {
     try {
       const res  = await fetch('https://api.dexscreener.com/latest/dex/pairs/bsc/' + PAIR);
@@ -595,31 +586,32 @@
       const mcEl = document.getElementById('live-mc');
       if (mcEl && mc) mcEl.textContent = fmtMC(mc);
 
-
       // Live Transactions
       const list = document.getElementById('tx-list');
       if (list) {
         const txns = pair.txns  || {};
         const vol  = pair.volume || {};
         const pc   = pair.priceChange || {};
-        const liq  = pair.liquidity?.usd;
-        const mkRow = (lbl, b, s, v, c) => {
-          const n = parseFloat(c||0), up = n >= 0;
+        const liq  = pair.liquidity ? pair.liquidity.usd : 0;
+        const mkRow = function(lbl, b, s, v, c) {
+          const n = parseFloat(c || 0);
+          const up = n >= 0;
           return '<div class="tx-item">' +
-            '<span class="tx-type '+(up?'buy':'sell')+'">'+lbl+'</span>' +
-            '<span class="tx-amount '+(up?'buy':'sell')+'">'+(b||0)+' buys / '+(s||0)+' sells</span>' +
-            '<span class="tx-wallet">'+fmtVol(v)+' vol</span>' +
-            '<span class="tx-time" style="color:'+(up?'var(--green)':'var(--red)')+';">'+(up?'+':'')+n.toFixed(2)+'%</span>' +
+            '<span class="tx-type ' + (up ? 'buy' : 'sell') + '">' + lbl + '</span>' +
+            '<span class="tx-amount ' + (up ? 'buy' : 'sell') + '">' + (b || 0) + ' buys / ' + (s || 0) + ' sells</span>' +
+            '<span class="tx-wallet">' + fmtVol(v) + ' vol</span>' +
+            '<span class="tx-time" style="color:' + (up ? 'var(--green)' : 'var(--red)') + ';">' + (up ? '+' : '') + n.toFixed(2) + '%</span>' +
             '</div>';
         };
+        var h1 = txns.h1 || {}, h6 = txns.h6 || {}, h24 = txns.h24 || {}, m5 = txns.m5 || {};
         list.innerHTML =
-          mkRow('5M',  txns.m5?.buys,  txns.m5?.sells,  vol.m5,  pc.m5)  +
-          mkRow('1H',  txns.h1?.buys,  txns.h1?.sells,  vol.h1,  pc.h1)  +
-          mkRow('6H',  txns.h6?.buys,  txns.h6?.sells,  vol.h6,  pc.h6)  +
-          mkRow('24H', txns.h24?.buys, txns.h24?.sells, vol.h24, pc.h24) +
+          mkRow('5M',  m5.buys,  m5.sells,  vol.m5,  pc.m5)  +
+          mkRow('1H',  h1.buys,  h1.sells,  vol.h1,  pc.h1)  +
+          mkRow('6H',  h6.buys,  h6.sells,  vol.h6,  pc.h6)  +
+          mkRow('24H', h24.buys, h24.sells, vol.h24, pc.h24) +
           '<div class="tx-item" style="justify-content:space-between;flex-wrap:wrap;gap:8px;background:rgba(245,200,66,0.03);border-color:rgba(245,200,66,0.1);">' +
-            '<span style="font-size:12px;color:var(--muted);">Liquidity: <strong style="color:var(--gold);">'+fmtVol(liq)+'</strong></span>' +
-            '<a href="https://dexscreener.com/bsc/'+PAIR+'" target="_blank" style="font-size:12px;color:var(--gold);font-weight:700;text-decoration:none;">Full chart on DexScreener &rarr;</a>' +
+            '<span style="font-size:12px;color:var(--muted);">Liquidity: <strong style="color:var(--gold);">' + fmtVol(liq) + '</strong></span>' +
+            '<a href="https://dexscreener.com/bsc/' + PAIR + '" target="_blank" style="font-size:12px;color:var(--gold);font-weight:700;text-decoration:none;">Full chart on DexScreener &rarr;</a>' +
           '</div>';
       }
 
@@ -628,13 +620,12 @@
     }
   }
 
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  const observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); });
   }, { threshold: 0.05 });
-  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-  // Fallback: make all reveal elements visible after 300ms in case observer doesn't fire
-  setTimeout(() => {
-    document.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
+  document.querySelectorAll('.reveal').forEach(function(el) { observer.observe(el); });
+  setTimeout(function() {
+    document.querySelectorAll('.reveal').forEach(function(el) { el.classList.add('visible'); });
   }, 300);
 
   fetchAndRender();
